@@ -1,0 +1,18 @@
+(kicad_sch (version 20211123) (generator eeschema)
+
+  (uuid ce89650c-abd3-4168-aeaa-3472a650e247)
+
+  (paper "A4")
+
+  (title_block
+    (title "Telemetry RF module with CAN, GPS and IMU")
+    (rev "1.0")
+    (company "PUT Solar Dynamics")
+    (comment 1 "Mateusz Czarnecki")
+    (comment 2 "GPS and Xbee connections")
+  )
+
+  (lib_symbols
+  )
+
+)

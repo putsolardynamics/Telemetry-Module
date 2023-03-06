@@ -1,0 +1,6 @@
+(sym_lib_table
+  (version 7)
+  (lib (name "SOLARY")(type "KiCad")(uri "C:/Users/Mateusz/Documents/KiCad/6.0/symbols/SOLARY.kicad_sym")(options "")(descr ""))
+  (lib (name "2023-02-18_13-29-27")(type "Legacy")(uri "C:/Users/Mateusz/Documents/KiCad/2023-02-18_13-29-27.lib")(options "")(descr ""))
+  (lib (name "SamacSys_Parts")(type "Legacy")(uri "C:/Users/Mateusz/Documents/KiCad/SamacSys_Parts.lib")(options "")(descr ""))
+)
