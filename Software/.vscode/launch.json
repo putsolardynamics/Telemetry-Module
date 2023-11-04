@@ -1,0 +1,24 @@
+{
+  "version": "0.2.1",
+  "configurations": [
+    {
+      "name": "Launch",
+      "type": "cppdbg",
+      "request": "launch",
+      "cwd": "${workspaceRoot}",
+      "program": "${command:cmake.launchTargetPath}",
+      "MIMode": "gdb",
+      "miDebuggerPath": "${command:vscode-embedded.st.gdb}",
+      "miDebuggerServerAddress": "localhost:3333",
+      "debugServerPath": "${command:vscode-embedded.st.gdbserver}",
+      "debugServerArgs": "--stm32cubeprogrammer-path ${command:vscode-embedded.st.cubeprogrammer} --swd --port-number 3333",
+      "serverStarted": "Waiting for connection on port .*\\.\\.\\.",
+      "stopAtConnect": false,
+      "postRemoteConnectCommands": [
+        {
+          "text": "load build/debug/build/RF_module.elf"
+        }
+      ],
+      "svdPath": "${command:vscode-embedded.st.svd}/STM32F413.svd"    }
+  ]
+}
