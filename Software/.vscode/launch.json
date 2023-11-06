@@ -1,24 +1,66 @@
+// AUTOMATICALLY GENERATED FILE. PLEASE DO NOT MODIFY IT MANUALLY
+//
+// PIO Unified Debugger
+//
+// Documentation: https://docs.platformio.org/page/plus/debugging.html
+// Configuration: https://docs.platformio.org/page/projectconf/section_env_debug.html
+
 {
-  "version": "0.2.1",
-  "configurations": [
-    {
-      "name": "Launch",
-      "type": "cppdbg",
-      "request": "launch",
-      "cwd": "${workspaceRoot}",
-      "program": "${command:cmake.launchTargetPath}",
-      "MIMode": "gdb",
-      "miDebuggerPath": "${command:vscode-embedded.st.gdb}",
-      "miDebuggerServerAddress": "localhost:3333",
-      "debugServerPath": "${command:vscode-embedded.st.gdbserver}",
-      "debugServerArgs": "--stm32cubeprogrammer-path ${command:vscode-embedded.st.cubeprogrammer} --swd --port-number 3333",
-      "serverStarted": "Waiting for connection on port .*\\.\\.\\.",
-      "stopAtConnect": false,
-      "postRemoteConnectCommands": [
+    "version": "0.2.0",
+    "configurations": [
         {
-          "text": "load build/debug/build/RF_module.elf"
+            "name": "C/C++ Runner: Debug Session",
+            "type": "cppdbg",
+            "request": "launch",
+            "args": [],
+            "stopAtEntry": false,
+            "externalConsole": true,
+            "cwd": "c:/Users/Mateusz/GIT/Telemetry-Module/Software",
+            "program": "c:/Users/Mateusz/GIT/Telemetry-Module/Software/build/Debug/outDebug",
+            "MIMode": "gdb",
+            "miDebuggerPath": "C:/Users/Mateusz/.platformio/packages/toolchain-gdbarmnoneeabi@1.70201.0/bin/arm-none-eabi-gcc.exe",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ]
+        },
+        {
+            "type": "platformio-debug",
+            "request": "launch",
+            "name": "PIO Debug",
+            "executable": "C:/Users/Mateusz/GIT/Telemetry-Module/Software/.pio/build/genericSTM32F413RH/firmware.elf",
+            "projectEnvName": "genericSTM32F413RH",
+            "toolchainBinDir": "C:/Users/Mateusz/.platformio/packages/toolchain-gccarmnoneeabi@1.70201.0/bin",
+            "internalConsoleOptions": "openOnSessionStart",
+            "svdPath": "C:/Users/Mateusz/.platformio/platforms/ststm32/misc/svd/STM32F41x.svd",
+            "preLaunchTask": {
+                "type": "PlatformIO",
+                "task": "Pre-Debug"
+            }
+        },
+        {
+            "type": "platformio-debug",
+            "request": "launch",
+            "name": "PIO Debug (skip Pre-Debug)",
+            "executable": "C:/Users/Mateusz/GIT/Telemetry-Module/Software/.pio/build/genericSTM32F413RH/firmware.elf",
+            "projectEnvName": "genericSTM32F413RH",
+            "toolchainBinDir": "C:/Users/Mateusz/.platformio/packages/toolchain-gccarmnoneeabi@1.70201.0/bin",
+            "internalConsoleOptions": "openOnSessionStart",
+            "svdPath": "C:/Users/Mateusz/.platformio/platforms/ststm32/misc/svd/STM32F41x.svd"
+        },
+        {
+            "type": "platformio-debug",
+            "request": "launch",
+            "name": "PIO Debug (without uploading)",
+            "executable": "C:/Users/Mateusz/GIT/Telemetry-Module/Software/.pio/build/genericSTM32F413RH/firmware.elf",
+            "projectEnvName": "genericSTM32F413RH",
+            "toolchainBinDir": "C:/Users/Mateusz/.platformio/packages/toolchain-gccarmnoneeabi@1.70201.0/bin",
+            "internalConsoleOptions": "openOnSessionStart",
+            "svdPath": "C:/Users/Mateusz/.platformio/platforms/ststm32/misc/svd/STM32F41x.svd",
+            "loadMode": "manual"
         }
-      ],
-      "svdPath": "${command:vscode-embedded.st.svd}/STM32F413.svd"    }
-  ]
+    ]
 }

@@ -1,3 +1,0 @@
-C:/Users/Mateusz/Documents/GIT/Telemetry-Module/Software/build/debug/build/CMakeFiles/RF_module.dir
-C:/Users/Mateusz/Documents/GIT/Telemetry-Module/Software/build/debug/build/CMakeFiles/edit_cache.dir
-C:/Users/Mateusz/Documents/GIT/Telemetry-Module/Software/build/debug/build/CMakeFiles/rebuild_cache.dir
