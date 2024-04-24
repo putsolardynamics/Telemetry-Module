@@ -20,6 +20,7 @@
 #include "main.h"
 #include "can.h"
 #include "crc.h"
+#include "dma.h"
 #include "i2c.h"
 #include "spi.h"
 #include "tim.h"
@@ -29,7 +30,7 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-#include "MPU6050.h"
+#include "mpu6050.h"
 #include "usbd_cdc_if.h"
 /* USER CODE END Includes */
 
@@ -52,9 +53,13 @@
 
 /* USER CODE BEGIN PV */
 MPU6050_t MPU6050;
-uint8_t DataToSend[100];
+uint8_t PrintBuffer[400];
 uint8_t MessageCounter = 0;
 uint8_t MessageLength = 0;
+
+
+#define READ_IMU_NBYTES 14
+uint8_t Rec_Data[READ_IMU_NBYTES];
 uint8_t Received = 0;
 /* USER CODE END PV */
 
@@ -65,9 +70,26 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 {
   if (htim->Instance == TIM6)
   {
-    HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_13);
+    // HAL_GPIO_TogglePin(GPIOC, SYS_LED_Pin);
   }
 }
+
+void HAL_I2C_MemRxCpltCallback (I2C_HandleTypeDef * hi2c){
+  if(hi2c == &hi2c1){
+    HAL_GPIO_TogglePin(GPIOC, SYS_LED_Pin);
+    MPU6050_fill(&MPU6050, Rec_Data);
+    Received = 1;
+  }
+}
+void HAL_I2C_MasterRxCpltCallback (I2C_HandleTypeDef * hi2c)
+{
+  if(hi2c == &hi2c1){
+    HAL_GPIO_TogglePin(GPIOC, SYS_LED_Pin);
+    MPU6050_fill(&MPU6050, Rec_Data);
+    Received = 1;
+  }
+}
+
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -103,6 +125,7 @@ int main(void)
 
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
+  MX_DMA_Init();
   MX_CAN1_Init();
   MX_CAN3_Init();
   MX_I2C1_Init();
@@ -118,24 +141,56 @@ int main(void)
   /* USER CODE BEGIN 2 */
   while (MPU6050_Init(&hi2c1) == 1);
   HAL_TIM_Base_Start_IT(&htim6);
-  HAL_UART_Receive_IT(&huart6, &Received, 1);
+  // HAL_UART_Receive_IT(&huart6, &Received, 1);
+  
+  // gps reset
+  HAL_GPIO_WritePin(GPS_RST_GPIO_Port,GPS_RST_Pin, GPIO_PIN_RESET);
+  HAL_Delay(200);
+  HAL_GPIO_WritePin(GPS_RST_GPIO_Port,GPS_RST_Pin, GPIO_PIN_SET);
+  
+  // HAL_StatusTypeDef status = HAL_I2C_Master_Receive_DMA(&hi2c1, MPU6050_ADDR, Rec_Data, READ_IMU_NBYTES);
+  HAL_StatusTypeDef status = HAL_I2C_Mem_Read_DMA(&hi2c1,MPU6050_ADDR,DATA_START_REG,1,Rec_Data,14);
+
+
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
+
+  
+
   while (1)
   {
     /* USER CODE END WHILE */
+
     /* USER CODE BEGIN 3 */
-      HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_13);
-      MPU6050_Read_All(&hi2c1, &MPU6050);
-      int x = MPU6050.KalmanAngleX;
-      int y = MPU6050.KalmanAngleY;
-      ++MessageCounter;
-			MessageLength = sprintf(DataToSend, "X = %d\t Y = %d\n\r", x, y);
-			CDC_Transmit_FS(DataToSend, MessageLength);
-      HAL_UART_Transmit_IT(&huart6, DataToSend, MessageLength);
-      HAL_Delay (10);
+    
+    if(Received){
+      Received = 0;
+
+      for(int i=0;i<READ_IMU_NBYTES;i++){
+        MessageLength = sprintf(PrintBuffer, "%s%02X/",PrintBuffer,Rec_Data[i]);
+      }
+      CDC_Transmit_FS(PrintBuffer, MessageLength);
+
+      MessageLength = sprintf(PrintBuffer, "\n\n");
+      CDC_Transmit_FS(PrintBuffer, MessageLength);
+
+      // HAL_GPIO_TogglePin(GPIOC, SYS_LED_Pin);
+      // HAL_StatusTypeDef status = HAL_I2C_Master_Receive_DMA(&hi2c1, MPU6050_ADDR, Rec_Data, READ_IMU_NBYTES);
+      HAL_StatusTypeDef status = HAL_I2C_Mem_Read_DMA(&hi2c1,MPU6050_ADDR,DATA_START_REG,1,Rec_Data,14);
+    }
+    
+    // MPU6050_Read_All(&hi2c1,&MPU6050);
+    // MessageLength = sprintf(PrintBuffer, "GyroX: %d, GyroY: %d\n", MPU6050.Gyro_X_RAW, MPU6050.Gyro_Y_RAW);
+    // CDC_Transmit_FS(PrintBuffer,MessageLength);
+
+
+    // HAL_UART_Receive_IT(&huart6, PrintBuffer, 20);
+    // MessageLength = sprintf(PrintBuffer, "%s\n", PrintBuffer);
+    // CDC_Transmit_FS(PrintBuffer, MessageLength);
+
+    HAL_Delay(1000);
   }
   /* USER CODE END 3 */
 }

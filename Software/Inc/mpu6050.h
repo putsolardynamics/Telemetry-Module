@@ -13,6 +13,24 @@
 #include <stdint.h>
 #include "i2c.h"
 
+#define MPU6050_ADDR 0xD0
+
+#define RAD_TO_DEG 57.295779513082320876798154814105
+
+#define WHO_AM_I_REG 0x75
+#define PWR_MGMT_1_REG 0x6B
+#define SMPLRT_DIV_REG 0x19
+#define ACCEL_CONFIG_REG 0x1C
+#define ACCEL_XOUT_H_REG 0x3B
+#define TEMP_OUT_H_REG 0x41
+#define GYRO_CONFIG_REG 0x1B
+#define GYRO_XOUT_H_REG 0x43
+#define INT_ENABLE_REG 0x38
+#define INT_PIN_CONFIG_REG 0x37
+
+#define DATA_START_REG ACCEL_XOUT_H_REG
+
+
 // MPU6050 structure
 typedef struct
 {
@@ -57,5 +75,9 @@ void MPU6050_Read_Gyro(I2C_HandleTypeDef *I2Cx, MPU6050_t *DataStruct);
 void MPU6050_Read_Temp(I2C_HandleTypeDef *I2Cx, MPU6050_t *DataStruct);
 
 void MPU6050_Read_All(I2C_HandleTypeDef *I2Cx, MPU6050_t *DataStruct);
+
+void MPU6050_fill(MPU6050_t *DataStruct, uint8_t Rec_Data[14]);
+
+void Kalman_solve(MPU6050_t *DataStruct);
 
 double Kalman_getAngle(Kalman_t *Kalman, double newAngle, double newRate, double dt);
