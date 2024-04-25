@@ -70,7 +70,7 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 {
   if (htim->Instance == TIM6)
   {
-    // HAL_GPIO_TogglePin(GPIOC, SYS_LED_Pin);
+    HAL_GPIO_TogglePin(GPIOC, SYS_LED_Pin);
   }
 }
 
@@ -103,6 +103,7 @@ void HAL_I2C_MasterRxCpltCallback (I2C_HandleTypeDef * hi2c)
   */
 int main(void)
 {
+
   /* USER CODE BEGIN 1 */
 
   /* USER CODE END 1 */
@@ -165,9 +166,9 @@ int main(void)
 
     /* USER CODE BEGIN 3 */
     
-    if(Received){
-      Received = 0;
-
+    // if(Received){
+    //   Received = 0;
+    if(1){
       for(int i=0;i<READ_IMU_NBYTES;i++){
         MessageLength = sprintf(PrintBuffer, "%s%02X/",PrintBuffer,Rec_Data[i]);
       }
@@ -176,7 +177,7 @@ int main(void)
       MessageLength = sprintf(PrintBuffer, "\n\n");
       CDC_Transmit_FS(PrintBuffer, MessageLength);
 
-      // HAL_GPIO_TogglePin(GPIOC, SYS_LED_Pin);
+      HAL_GPIO_TogglePin(GPIOC, SYS_LED_Pin);
       // HAL_StatusTypeDef status = HAL_I2C_Master_Receive_DMA(&hi2c1, MPU6050_ADDR, Rec_Data, READ_IMU_NBYTES);
       HAL_StatusTypeDef status = HAL_I2C_Mem_Read_DMA(&hi2c1,MPU6050_ADDR,DATA_START_REG,1,Rec_Data,14);
     }

@@ -20,16 +20,16 @@
             (python311.withPackages (ps: with ps; [
                 pip
             ]))
-            platformio
+            # platformio
             jdk17
             # stlink #stlink needs to have udev rules installed (in nixos it's services.udev... [pkgs.stlink])
             picocom
 
             clang-tools
             gnumake
+            binutils
           ];
           shellHook = ''
-            # ./setup.sh            
 
             if [ ! -d ".env" ]; then
               echo "installing..."
