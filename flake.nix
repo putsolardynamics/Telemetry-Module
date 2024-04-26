@@ -2,7 +2,6 @@
   description = "A Nix-flake-based Nix development environment";
 
   inputs.nixpkgs.url = "https://flakehub.com/f/NixOS/nixpkgs/0.1.*.tar.gz";
-  # inputs.stm32cubemx.url = "path:./stm32cubemx";
 
   outputs = { self, nixpkgs }:
     let
