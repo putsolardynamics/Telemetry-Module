@@ -15,13 +15,13 @@
         default = pkgs.mkShell {
           packages = with pkgs; [
             # stm32cubemx
-            (pkgs.callPackage /home/kamo/Projects/Telemetry-Module/stm32cubemx.nix {}) # nixos has an old version of cubemx
+            (pkgs.callPackage ./stm32cubemx.nix {}) # nixos has an old version of cubemx
             (python311.withPackages (ps: with ps; [
                 pip
             ]))
-            # platformio
+            platformio
             jdk17
-            # stlink #stlink needs to have udev rules installed (in nixos it's services.udev... [pkgs.stlink])
+            stlink #stlink needs to have udev rules installed (in nixos it's services.udev... [pkgs.stlink])
             picocom
 
             clang-tools
