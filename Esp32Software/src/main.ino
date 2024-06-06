@@ -32,7 +32,7 @@ enum connection_status :uint8_t{
 
 
 struct packet_t{
-	uint8_t icmp; // bitfield [connection_status(2bit), connection_data(6bits)]
+	uint8_t icmp; // bitfield [connection_status(2bits), connection_data(6bits)]
 	uint8_t len;
 	uint8_t data[252];
 };
@@ -55,7 +55,7 @@ void enqueue(packet_t* packet){
 }
 packet_t dequeue(){
 	packet_t element = queue[0];
-	for(uint8_t i=1;i<queue_len;i++) queue[i-1] = queue[i];
+	for(uint8_t i=1;i<queue_len+1;i++) queue[i-1] = queue[i];
 	return element;
 }
 
@@ -77,7 +77,7 @@ void setup() {
   Serial.begin(9600);
 
 
-  // setup code from https://hackaday.io/project/161896-linux-espnow/log/161046-implementation
+	// setup code from https://hackaday.io/project/161896-linux-espnow/log/161046-implementation
 	WiFi.disconnect();
 	WiFi.mode(WIFI_STA);
 
@@ -114,10 +114,11 @@ void setup() {
 #ifdef RECIEVER
 packet_t tmp;
 void loop() {
-	if(last_packet > CONNECTION_WAIT){
+	if(last_packet > CONNECTION_WAIT && queue_len==0){
 		tmp.icmp = DISCONNECTED << 6;
 		tmp.len = 0;
 		esp_now_send(peerAddr,(uint8_t*)&tmp, sizeof(packet_t));
+		delay(500);
 	}
 
 	if(queue_len==0) return;
