@@ -3,6 +3,7 @@
 #include "esp_private/wifi.h"
 #include "esp_wifi.h"
 
+#include <cstddef>
 #include <cstdint>
 #include <esp_now.h>
 
@@ -17,19 +18,20 @@
 #define RECIEVER 1
 // #define TRANSMITTER 1
 
+/* global variables */
 #ifdef RECIEVER
 uint8_t peerAddr[] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
+uint64_t last_packet;
 #elif TRANSMITTER
 uint8_t peerAddr[] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
 #endif
+/* global variables */
 
-
-enum connection_status :uint8_t{
+enum connection_status : uint8_t{
 	DISCONNECTED=B00,
 	CONNECTED=B01,
 	LAGGING=B10, // data = num packets left to process
 };
-
 
 struct packet_t{
 	uint8_t icmp; // bitfield [connection_status(2bits), connection_data(6bits)]
@@ -42,28 +44,40 @@ void print_packet(packet_t* pkt){
 		Serial.printf("%02X",pkt[i]);
 	}
 	Serial.println();
- }
+}
 
+template<size_t capacity, class T>
+class Queue{
+private:
+	T elements[capacity];
+	uint8_t start;
+	uint8_t end;
+	uint8_t size;
+public:
+	uint8_t len(){
+		return size;
+	}
+	void push(packet_t* packet){
+		end = (end+1)%capacity;
+		++size;
+		memcpy(&elements[end],packet,sizeof(packet_t));
+	}
+	packet_t pop(){
+		uint8_t tmp_start = start;
+		start = (tmp_start+1)%capacity;
+		--size;
+		return elements[tmp_start];
+	}
+};
 #define QUEUE_SIZE 64
-packet_t queue[QUEUE_SIZE];
-uint8_t queue_len = 0;
-
-uint64_t last_packet =0;
-
-void enqueue(packet_t* packet){
-	memcpy(&queue[++queue_len], packet, sizeof(packet_t));
-}
-packet_t dequeue(){
-	packet_t element = queue[0];
-	for(uint8_t i=1;i<queue_len+1;i++) queue[i-1] = queue[i];
-	return element;
-}
+Queue<QUEUE_SIZE,packet_t> packet_queue;
 
 
 #ifdef RECIEVER
 void onRecv(const uint8_t * mac, const uint8_t *incomingData, int len) {
 	if(!memcmp(mac,peerAddr,6)) return;
-	enqueue((packet_t*)incomingData);
+	packet_queue.push((packet_t*)incomingData);
+	last_packet = millis();
 }
 
 void onSent(const uint8_t *mac_addr, esp_now_send_status_t status) {
@@ -114,17 +128,16 @@ void setup() {
 #ifdef RECIEVER
 packet_t tmp;
 void loop() {
-	if(last_packet > CONNECTION_WAIT && queue_len==0){
+	if(last_packet > CONNECTION_WAIT && packet_queue.len()==0){
 		tmp.icmp = DISCONNECTED << 6;
 		tmp.len = 0;
 		esp_now_send(peerAddr,(uint8_t*)&tmp, sizeof(packet_t));
 		delay(500);
 	}
 
-	if(queue_len==0) return;
+	if(packet_queue.len()==0) return;
 	
-	tmp = dequeue();
-	last_packet = millis();
+	tmp = packet_queue.pop();
 	switch(tmp.icmp & B11000000){
 		case(DISCONNECTED):{
 			tmp.icmp = CONNECTED << 6;
@@ -135,8 +148,8 @@ void loop() {
 		case(CONNECTED):{
 			// TODO: output the packet via serial
 			print_packet(&tmp);
-			if(queue_len<=QUEUE_SIZE/2) break;
-			tmp.icmp = (LAGGING << 6) | queue_len;
+			if(packet_queue.len()<=QUEUE_SIZE/2) break;
+			tmp.icmp = (LAGGING << 6) | packet_queue.len();
 			tmp.len = 0;
 			esp_now_send(peerAddr,(uint8_t*)&tmp,sizeof(packet_t));
 			break;
