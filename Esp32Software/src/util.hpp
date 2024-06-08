@@ -9,31 +9,33 @@ enum connection_status : uint8_t{
 };
 
 struct packet_t{
-	uint8_t icmp; // bitfield [connection_status(2bits), connection_data(6bits)]
+	// uint8_t icmp; // bitfield [connection_status(2bits), connection_data(6bits)]
 	uint8_t len;
-	uint8_t data[248];
+	uint8_t data[250];
 };
 
 template<size_t capacity, class T>
 class Queue{
 private:
 	T elements[capacity];
-	uint8_t start;
-	uint8_t end;
-	uint8_t size;
+	uint8_t start=0;
+	uint8_t end=0;
+	uint8_t size=0;
 public:
 	uint8_t len(){
 		return size;
 	}
-	packet_t* top(){
+	T* top(){
 		return &elements[start];
 	}
-	void push(packet_t* packet){
+	void push(const T& packet){
+		// memcpy(&elements[end],packet,sizeof(T));
+		elements[end] = packet;
 		end = (end+1)%capacity;
 		++size;
-		memcpy(&elements[end],packet,sizeof(packet_t));
+		// memcpy(&elements[end],packet,sizeof(T));
 	}
-	packet_t pop(){
+	T pop(){
 		uint8_t tmp_start = start;
 		start = (tmp_start+1)%capacity;
 		--size;

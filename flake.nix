@@ -15,7 +15,7 @@
         default = pkgs.mkShell {
           packages = with pkgs; [
             # stm32cubemx
-            (pkgs.callPackage ./stm32cubemx.nix {}) # nixos has an old version of cubemx
+            (pkgs.callPackage ./stm32cubemx.nix {}) # for specific stm32cubemx version
             (python311.withPackages (ps: with ps; [
                 pip
             ]))

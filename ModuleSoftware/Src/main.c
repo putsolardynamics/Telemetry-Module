@@ -18,6 +18,7 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
+#include "cmsis_os.h"
 #include "can.h"
 #include "crc.h"
 #include "dma.h"
@@ -57,39 +58,33 @@ uint8_t PrintBuffer[400];
 uint8_t MessageCounter = 0;
 uint8_t MessageLength = 0;
 
-
-#define READ_IMU_NBYTES 14
 uint8_t Rec_Data[READ_IMU_NBYTES];
 uint8_t Received = 0;
+uint8_t err=0;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
+void MX_FREERTOS_Init(void);
 /* USER CODE BEGIN PFP */
-void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
-{
-  if (htim->Instance == TIM6)
-  {
-    HAL_GPIO_TogglePin(GPIOC, SYS_LED_Pin);
-  }
-}
 
+// void HAL_I2C_MasterRxCpltCallback (I2C_HandleTypeDef * hi2c){}
+// void HAL_I2C_SlaveRxCpltCallback (I2C_HandleTypeDef * hi2c){}
 void HAL_I2C_MemRxCpltCallback (I2C_HandleTypeDef * hi2c){
-  if(hi2c == &hi2c1){
-    HAL_GPIO_TogglePin(GPIOC, SYS_LED_Pin);
+  // if(hi2c->Instance==hi2c1.Instance){
+  if(hi2c==&hi2c1){
     MPU6050_fill(&MPU6050, Rec_Data);
     Received = 1;
   }
 }
-void HAL_I2C_MasterRxCpltCallback (I2C_HandleTypeDef * hi2c)
-{
-  if(hi2c == &hi2c1){
-    HAL_GPIO_TogglePin(GPIOC, SYS_LED_Pin);
-    MPU6050_fill(&MPU6050, Rec_Data);
-    Received = 1;
-  }
-}
-
+// void HAL_I2C_ErrorCallback(I2C_HandleTypeDef * hi2c){
+//   err=1;
+// }
+// void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart)
+// {
+//   if(huart==&huart2){
+//   }
+// }
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -138,7 +133,6 @@ int main(void)
   MX_USART6_UART_Init();
   MX_CRC_Init();
   MX_TIM6_Init();
-  MX_USB_DEVICE_Init();
   /* USER CODE BEGIN 2 */
   while (MPU6050_Init(&hi2c1) == 1);
   HAL_TIM_Base_Start_IT(&htim6);
@@ -149,15 +143,23 @@ int main(void)
   HAL_Delay(200);
   HAL_GPIO_WritePin(GPS_RST_GPIO_Port,GPS_RST_Pin, GPIO_PIN_SET);
   
-  // HAL_StatusTypeDef status = HAL_I2C_Master_Receive_DMA(&hi2c1, MPU6050_ADDR, Rec_Data, READ_IMU_NBYTES);
-  HAL_StatusTypeDef status = HAL_I2C_Mem_Read_DMA(&hi2c1,MPU6050_ADDR,DATA_START_REG,1,Rec_Data,14);
+  HAL_StatusTypeDef status = HAL_I2C_Mem_Read_DMA(&hi2c1,MPU6050_ADDR,DATA_START_REG,1,Rec_Data,READ_IMU_NBYTES);
 
 
   /* USER CODE END 2 */
 
+  /* Call init function for freertos objects (in cmsis_os2.c) */
+  MX_FREERTOS_Init();
+
+  /* Start scheduler */
+  osKernelStart();
+
+  /* We should never get here as control is now taken by the scheduler */
+
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
 
+  // MX_USB_DEVICE_Init();
   
 
   while (1)
@@ -165,33 +167,15 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
+    // HAL_GPIO_TogglePin(GPIOC, SYS_LED_Pin);
     
-    // if(Received){
-    //   Received = 0;
-    if(1){
-      for(int i=0;i<READ_IMU_NBYTES;i++){
-        MessageLength = sprintf(PrintBuffer, "%s%02X/",PrintBuffer,Rec_Data[i]);
-      }
-      CDC_Transmit_FS(PrintBuffer, MessageLength);
-
-      MessageLength = sprintf(PrintBuffer, "\n\n");
-      CDC_Transmit_FS(PrintBuffer, MessageLength);
-
-      HAL_GPIO_TogglePin(GPIOC, SYS_LED_Pin);
-      // HAL_StatusTypeDef status = HAL_I2C_Master_Receive_DMA(&hi2c1, MPU6050_ADDR, Rec_Data, READ_IMU_NBYTES);
-      HAL_StatusTypeDef status = HAL_I2C_Mem_Read_DMA(&hi2c1,MPU6050_ADDR,DATA_START_REG,1,Rec_Data,14);
-    }
-    
-    // MPU6050_Read_All(&hi2c1,&MPU6050);
-    // MessageLength = sprintf(PrintBuffer, "GyroX: %d, GyroY: %d\n", MPU6050.Gyro_X_RAW, MPU6050.Gyro_Y_RAW);
+    // HAL_UART_Transmit_IT(&huart2, PrintBuffer, MessageLength);
+    // MessageLength = sprintf(PrintBuffer, "isSent: %d\n\r", isSent);
+    // isSent =0;
     // CDC_Transmit_FS(PrintBuffer,MessageLength);
-
-
-    // HAL_UART_Receive_IT(&huart6, PrintBuffer, 20);
-    // MessageLength = sprintf(PrintBuffer, "%s\n", PrintBuffer);
-    // CDC_Transmit_FS(PrintBuffer, MessageLength);
-
-    HAL_Delay(1000);
+    
+    osDelay(1000);
+    // HAL_Delay(1000);
   }
   /* USER CODE END 3 */
 }
@@ -245,6 +229,31 @@ void SystemClock_Config(void)
 /* USER CODE BEGIN 4 */
 
 /* USER CODE END 4 */
+
+/**
+  * @brief  Period elapsed callback in non blocking mode
+  * @note   This function is called  when TIM10 interrupt took place, inside
+  * HAL_TIM_IRQHandler(). It makes a direct call to HAL_IncTick() to increment
+  * a global variable "uwTick" used as application time base.
+  * @param  htim : TIM handle
+  * @retval None
+  */
+void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
+{
+  /* USER CODE BEGIN Callback 0 */
+  if (htim->Instance == TIM6)
+  {
+    HAL_GPIO_TogglePin(GPIOC, SYS_LED_Pin);
+  }
+
+  /* USER CODE END Callback 0 */
+  if (htim->Instance == TIM10) {
+    HAL_IncTick();
+  }
+  /* USER CODE BEGIN Callback 1 */
+
+  /* USER CODE END Callback 1 */
+}
 
 /**
   * @brief  This function is executed in case of error occurrence.

@@ -29,6 +29,7 @@
 #define INT_PIN_CONFIG_REG 0x37
 
 #define DATA_START_REG ACCEL_XOUT_H_REG
+#define READ_IMU_NBYTES 14
 
 
 // MPU6050 structure
