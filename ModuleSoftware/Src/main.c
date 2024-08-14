@@ -53,14 +53,12 @@
 /* Private variables ---------------------------------------------------------*/
 
 /* USER CODE BEGIN PV */
-MPU6050_t MPU6050;
-uint8_t PrintBuffer[400];
-uint8_t MessageCounter = 0;
-uint8_t MessageLength = 0;
+volatile uint8_t mpuReceiveDone =1;
+volatile uint8_t uartTransmitDone=1;
+// volatile uint8_t uartReceiveDone=1;
+// volatile uint16_t uartReceiveLen;
+// extern osMessageQId uartCDCHandle;
 
-uint8_t Rec_Data[READ_IMU_NBYTES];
-uint8_t Received = 0;
-uint8_t err=0;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -68,23 +66,28 @@ void SystemClock_Config(void);
 void MX_FREERTOS_Init(void);
 /* USER CODE BEGIN PFP */
 
-// void HAL_I2C_MasterRxCpltCallback (I2C_HandleTypeDef * hi2c){}
-// void HAL_I2C_SlaveRxCpltCallback (I2C_HandleTypeDef * hi2c){}
 void HAL_I2C_MemRxCpltCallback (I2C_HandleTypeDef * hi2c){
-  // if(hi2c->Instance==hi2c1.Instance){
-  if(hi2c==&hi2c1){
-    MPU6050_fill(&MPU6050, Rec_Data);
-    Received = 1;
+  if(hi2c->Instance==hi2c1.Instance){
+    mpuReceiveDone = 1;
   }
 }
-// void HAL_I2C_ErrorCallback(I2C_HandleTypeDef * hi2c){
-//   err=1;
-// }
-// void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart)
-// {
-//   if(huart==&huart2){
-//   }
-// }
+
+void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart){
+  if(huart->Instance==huart2.Instance){
+    extern osMessageQId uartCDCHandle;
+    static BaseType_t taskWoken;
+    for(uint32_t i=0;i<huart->RxXferSize;i++){
+      xQueueSendFromISR(uartCDCHandle, huart2.pRxBuffPtr + i,&taskWoken);
+    }
+    HAL_UART_Receive_DMA(&huart2,huart->pRxBuffPtr,1);
+  }
+}
+void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart){
+  if(huart->Instance==huart2.Instance){
+    uartTransmitDone = 1;
+  }
+}
+
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -142,10 +145,10 @@ int main(void)
   HAL_GPIO_WritePin(GPS_RST_GPIO_Port,GPS_RST_Pin, GPIO_PIN_RESET);
   HAL_Delay(200);
   HAL_GPIO_WritePin(GPS_RST_GPIO_Port,GPS_RST_Pin, GPIO_PIN_SET);
+
+  // initialize continuous uart dma read
+  // HAL_UART_Receive_DMA(&huart2,uartCDCBuffer,1024);
   
-  HAL_StatusTypeDef status = HAL_I2C_Mem_Read_DMA(&hi2c1,MPU6050_ADDR,DATA_START_REG,1,Rec_Data,READ_IMU_NBYTES);
-
-
   /* USER CODE END 2 */
 
   /* Call init function for freertos objects (in cmsis_os2.c) */
@@ -167,15 +170,6 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-    // HAL_GPIO_TogglePin(GPIOC, SYS_LED_Pin);
-    
-    // HAL_UART_Transmit_IT(&huart2, PrintBuffer, MessageLength);
-    // MessageLength = sprintf(PrintBuffer, "isSent: %d\n\r", isSent);
-    // isSent =0;
-    // CDC_Transmit_FS(PrintBuffer,MessageLength);
-    
-    osDelay(1000);
-    // HAL_Delay(1000);
   }
   /* USER CODE END 3 */
 }

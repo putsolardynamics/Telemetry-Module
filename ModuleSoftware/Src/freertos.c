@@ -48,25 +48,44 @@
 
 /* Private variables ---------------------------------------------------------*/
 /* USER CODE BEGIN Variables */
-extern MPU6050_t MPU6050;
-extern uint8_t PrintBuffer[400];
-extern uint8_t MessageCounter;
-extern uint8_t MessageLength;
+MPU6050_t MPU6050;
+uint8_t mpuReceiveBuff[READ_IMU_NBYTES];
 
 
-extern uint8_t Rec_Data[READ_IMU_NBYTES];
-extern uint8_t Received;
-extern uint8_t err;
+typedef enum {
+  FAIL =   0b00000000,
+  FAST =   0b00000001, // during uart/cdc send/recv
+  NORMAL = 0b00000010 // mpu6050 working
+} blinkModes;
+blinkModes ledBlinkMode;
+TickType_t lastBlinkSet;
+
+extern uint8_t sdajio[1024];
+uint8_t uartCDCBuffer[1024];
+extern volatile uint8_t mpuReceiveDone;
+extern volatile uint8_t uartTransmitDone;
 
 /* USER CODE END Variables */
 osThreadId defaultTaskHandle;
+osThreadId ledBlinkTaskHandle;
+osMessageQId CDCuartHandle;
+uint8_t _CDCuartBuffer[ 1024 * sizeof( uint8_t ) ];
+osStaticMessageQDef_t CDCuartControlBlock;
+osMessageQId uartCDCHandle;
+uint8_t _uartCDCBuffer[ 1024 * sizeof( uint8_t ) ];
+osStaticMessageQDef_t uartCDCControlBlock;
 
 /* Private function prototypes -----------------------------------------------*/
 /* USER CODE BEGIN FunctionPrototypes */
 
+TickType_t millis(){
+  return xTaskGetTickCount()/configTICK_RATE_HZ*1000;
+}
+
 /* USER CODE END FunctionPrototypes */
 
 void StartDefaultTask(void const * argument);
+void startLedBlink(void const * argument);
 
 extern void MX_USB_DEVICE_Init(void);
 void MX_FREERTOS_Init(void); /* (MISRA C 2004 rule 8.1) */
@@ -109,14 +128,27 @@ void MX_FREERTOS_Init(void) {
   /* start timers, add new ones, ... */
   /* USER CODE END RTOS_TIMERS */
 
+  /* Create the queue(s) */
+  /* definition and creation of CDCuart */
+  osMessageQStaticDef(CDCuart, 1024, uint8_t, _CDCuartBuffer, &CDCuartControlBlock);
+  CDCuartHandle = osMessageCreate(osMessageQ(CDCuart), NULL);
+
+  /* definition and creation of uartCDC */
+  osMessageQStaticDef(uartCDC, 1024, uint8_t, _uartCDCBuffer, &uartCDCControlBlock);
+  uartCDCHandle = osMessageCreate(osMessageQ(uartCDC), NULL);
+
   /* USER CODE BEGIN RTOS_QUEUES */
   /* add queues, ... */
   /* USER CODE END RTOS_QUEUES */
 
   /* Create the thread(s) */
   /* definition and creation of defaultTask */
-  osThreadDef(defaultTask, StartDefaultTask, osPriorityNormal, 0, 128);
+  osThreadDef(defaultTask, StartDefaultTask, osPriorityNormal, 0, 512);
   defaultTaskHandle = osThreadCreate(osThread(defaultTask), NULL);
+
+  /* definition and creation of ledBlinkTask */
+  osThreadDef(ledBlinkTask, startLedBlink, osPriorityIdle, 0, 128);
+  ledBlinkTaskHandle = osThreadCreate(osThread(ledBlinkTask), NULL);
 
   /* USER CODE BEGIN RTOS_THREADS */
   /* add threads, ... */
@@ -136,36 +168,90 @@ void StartDefaultTask(void const * argument)
   /* init code for USB_DEVICE */
   MX_USB_DEVICE_Init();
   /* USER CODE BEGIN StartDefaultTask */
+  HAL_UART_Receive_DMA(&huart2,uartCDCBuffer,1);
+  
   /* Infinite loop */
   for(;;)
   {
-    osDelay(1000);
-    HAL_GPIO_TogglePin(GPIOC, SYS_LED_Pin);
-
-    if(Received){
-      Received = 0;
-      // MPU6050_fill(&MPU6050,Rec_Data);
-      for(int i=0;i<READ_IMU_NBYTES;i++){
-        MessageLength = sprintf(PrintBuffer, "%s%02X/",PrintBuffer,Rec_Data[i]);
-      }
-      MessageLength = sprintf(PrintBuffer, "%s\n\r",PrintBuffer);
-      CDC_Transmit_FS(PrintBuffer, MessageLength);
-      osDelay(100);
-
-      HAL_GPIO_TogglePin(GPIOC, SYS_LED_Pin);
+    osDelay(10);
+    if(millis()-lastBlinkSet>3000){
+      ledBlinkMode = FAIL;
+      lastBlinkSet = millis();
     }
-    HAL_StatusTypeDef status = HAL_I2C_Mem_Read_DMA(&hi2c1,MPU6050_ADDR,DATA_START_REG,1,Rec_Data,READ_IMU_NBYTES);
+
+    if(mpuReceiveDone){
+      mpuReceiveDone = 0;
+      MPU6050_fill(&MPU6050,mpuReceiveBuff);
+
+      HAL_I2C_Mem_Read_DMA(&hi2c1,MPU6050_ADDR,DATA_START_REG,1,mpuReceiveBuff,READ_IMU_NBYTES);
+      ledBlinkMode = NORMAL;
+      lastBlinkSet = millis();
+    }
     
-    // MPU6050_Read_All(&hi2c1,&MPU6050);
-    MessageLength = sprintf(PrintBuffer, "GyroX: %d, GyroY: %d\n\r", MPU6050.Gyro_X_RAW, MPU6050.Gyro_Y_RAW);
-    CDC_Transmit_FS(PrintBuffer,MessageLength);
+    { // uart -> cdc
+      static uint8_t tmp[1024];
+      int i=0;
+      while(xQueueReceive(uartCDCHandle, tmp+i,0)==pdTRUE) i++;
+      
+      // size of data received
+      if(i!=0){
+        ledBlinkMode = FAST;
+        lastBlinkSet = millis();
+        CDC_Transmit_FS(tmp, i);
+      }
+    }
     
-    // send data to esp32
-    HAL_UART_Transmit_IT(&huart2, PrintBuffer, MessageLength);
-    MessageLength = sprintf(PrintBuffer, "");
+    // cdc->uart
+    if(uartTransmitDone){
+      static uint8_t CDCuartBuffer[1024];
+      int i=0;
+      while(xQueueReceive(CDCuartHandle, CDCuartBuffer+i,0)==pdTRUE) i++;
+      // size of data received
+      if(i!=0){
+        uartTransmitDone =0;
+        ledBlinkMode = FAST;
+        lastBlinkSet = millis();
+      }
+      HAL_UART_Transmit_DMA(&huart2, CDCuartBuffer, i);
+    }
+
+    {
+      // CDC_Transmit_FS(uartCDCBuffer, 100);
+      // uint8_t c[] = "\n\r";
+      // CDC_Transmit_FS(&c, 2);
+    }
+    
+    
+    
     
   }
   /* USER CODE END StartDefaultTask */
+}
+
+/* USER CODE BEGIN Header_startLedBlink */
+/**
+* @brief Function implementing the ledBlinkTask thread.
+* @param argument: Not used
+* @retval None
+*/
+/* USER CODE END Header_startLedBlink */
+void startLedBlink(void const * argument)
+{
+  /* USER CODE BEGIN startLedBlink */
+  /* Infinite loop */
+  for(;;)
+  {
+    if(ledBlinkMode == FAST ){
+      osDelay(100);
+    }else if (ledBlinkMode == NORMAL){
+      osDelay(1000);
+    } else{
+      HAL_GPIO_WritePin(GPIOC, SYS_LED_Pin, GPIO_PIN_SET);
+      osDelay(10000);
+    }
+    HAL_GPIO_TogglePin(GPIOC, SYS_LED_Pin);
+  }
+  /* USER CODE END startLedBlink */
 }
 
 /* Private application code --------------------------------------------------*/
